@@ -2,95 +2,60 @@
 
 ```mermaid
 flowchart TD
-    %% 定义样式类
     classDef startEnd fill:#90EE90,stroke:#333,stroke-width:2px,color:#000
     classDef decision fill:#FFFACD,stroke:#333,stroke-width:2px,color:#000
     classDef process fill:#ADD8E6,stroke:#333,stroke-width:2px,color:#000
     classDef penalty fill:#FFA07A,stroke:#333,stroke-width:2px,color:#000
     classDef free fill:#98FB98,stroke:#333,stroke-width:2px,color:#000
-    classDef note fill:#F0F0F0,stroke:#666,stroke-width:1px,stroke-dasharray: 5 5,color:#333
+    classDef note fill:#F0F0F0,stroke:#666,stroke-width:1px,stroke-dasharray:5 5,color:#333
 
-    %% 流程开始
-    Start([开始]) --> Input[输入停车记录<br/>车型/车位/车辆类型/充电状态/时长]
-    class Start startEnd
-    class Input process
-
-    %% 第一层判断：车位类型
-    Input --> SpotType{车位类型?}
-    class SpotType decision
+    Start([开始]) --> Input[输入停车记录]
+    Input --> SpotType{车位类型}
     
-    %% ========== 普通车位分支 ==========
-    SpotType -->|普通车位| NormalTime{停车时长<br/>>30分钟?}
-    class NormalTime decision
+    SpotType -->|普通车位| NormalTime{停车时长大于30分钟}
+    NormalTime -->|否| Free1[免费]
+    NormalTime -->|是| CarType1{车型}
     
-    NormalTime -->|否| Free1[免费<br/>0元]
-    class Free1 free
+    CarType1 -->|小车| NormalSmall[按小时计费<br/>5元每小时]
+    CarType1 -->|大车| NormalLarge[按小时计费<br/>10元每小时]
     
-    NormalTime -->|是| CarType1{车型?}
-    class CarType1 decision
-    
-    CarType1 -->|小车| NormalSmall[按小时计费<br/>5元/小时]
-    CarType1 -->|大车| NormalLarge[按小时计费<br/>10元/小时]
-    class NormalSmall,NormalLarge process
-    
-    NormalSmall --> Cap1{>24小时?}
-    NormalLarge --> Cap2{>24小时?}
-    class Cap1,Cap2 decision
+    NormalSmall --> Cap1{大于24小时}
+    NormalLarge --> Cap2{大于24小时}
     
     Cap1 -->|是| Fee1[封顶50元]
-    Cap1 -->|否| FeeNormal1[费用=min(小时数×5, 50)]
+    Cap1 -->|否| FeeNormal1[费用计算<br/>小时数乘5]
     Cap2 -->|是| Fee2[封顶100元]
-    Cap2 -->|否| FeeNormal2[费用=min(小时数×10, 100)]
-    class Fee1,Fee2,FeeNormal1,FeeNormal2 process
+    Cap2 -->|否| FeeNormal2[费用计算<br/>小时数乘10]
     
-    %% ========== 充电车位分支 ==========
-    SpotType -->|充电车位| Energy{是否新能源车?}
-    class Energy decision
+    SpotType -->|充电车位| Energy{是否新能源车}
     
-    %% 非新能源车占用充电位
-    Energy -->|否| OccupyTime1{占用时长<br/>>30分钟?}
-    class OccupyTime1 decision
-    OccupyTime1 -->|否| OccupyShort[惩罚性计费<br/>半价:小车15元/时,大车30元/时]
-    OccupyTime1 -->|是| OccupyLong[惩罚性计费<br/>全价:小车30元/时,大车60元/时]
-    class OccupyShort,OccupyLong penalty
+    Energy -->|否| OccupyTime1{时长大于30分钟}
+    OccupyTime1 -->|否| OccupyShort[惩罚性计费半价<br/>小车15元每小时]
+    OccupyTime1 -->|是| OccupyLong[惩罚性计费全价<br/>小车30元每小时]
     
-    %% 新能源车继续判断
-    Energy -->|是| Charging{是否正在充电?}
-    class Charging decision
+    Energy -->|是| Charging{是否正在充电}
     
-    %% 新能源车未充电（占用不充）
-    Charging -->|否| OccupyTime2{占用时长<br/>>30分钟?}
-    class OccupyTime2 decision
-    OccupyTime2 -->|否| OccupyShort2[惩罚性计费<br/>半价:小车15元/时,大车30元/时]
-    OccupyTime2 -->|是| OccupyLong2[惩罚性计费<br/>全价:小车30元/时,大车60元/时]
-    class OccupyShort2,OccupyLong2 penalty
+    Charging -->|否| OccupyTime2{时长大于30分钟}
+    OccupyTime2 -->|否| OccupyShort2[惩罚性计费半价]
+    OccupyTime2 -->|是| OccupyLong2[惩罚性计费全价]
     
-    %% 新能源车充电中或已充满
-    Charging -->|是| ChargeStatus{充电状态?}
-    class ChargeStatus decision
+    Charging -->|是| ChargeStatus{充电状态}
     
-    ChargeStatus -->|充电中| Free2[免费<br/>0元]
-    class Free2 free
-    
-    ChargeStatus -->|已充满| Overdue[计算占位费<br/>1元/分钟]
-    class Overdue process
+    ChargeStatus -->|充电中| Free2[免费]
+    ChargeStatus -->|已充满| Overdue[计算占位费<br/>1元每分钟]
     Overdue --> Cap3[封顶100元]
-    class Cap3 process
     
-    %% 占用计费封顶（非新能源或未充电）
     OccupyShort --> Cap4{占用封顶检查}
     OccupyLong --> Cap4
     OccupyShort2 --> Cap5{占用封顶检查}
     OccupyLong2 --> Cap5
+    
     Cap4 -->|小车| CapSmall[封顶150元]
     Cap4 -->|大车| CapLarge[封顶300元]
     Cap5 -->|小车| CapSmall
     Cap5 -->|大车| CapLarge
-    class Cap4,Cap5 decision
-    class CapSmall,CapLarge penalty
     
-    %% 汇总输出
-    Free1 --> Output
+    Free1 --> Output[输出结果]
     Fee1 --> Output
     FeeNormal1 --> Output
     Fee2 --> Output
@@ -100,12 +65,10 @@ flowchart TD
     CapSmall --> Output
     CapLarge --> Output
     
-    Output[输出结果<br/>停车费 + 占位费] --> End([结束])
-    class Output process
-    class End startEnd
+    Output --> End([结束])
     
-    %% 添加注释说明
-    Note1[注：所有计费采用进一法<br/>不足1小时按1小时计] -.-> Input
-    Note2[注：普通车位与占用计费<br/>分别独立封顶] -.-> Output
-    class Note1,Note2 note
-```
+    class Start,End startEnd
+    class SpotType,NormalTime,CarType1,Cap1,Cap2,Energy,OccupyTime1,Charging,OccupyTime2,ChargeStatus,Cap4,Cap5 decision
+    class Input,NormalSmall,NormalLarge,Fee1,FeeNormal1,Fee2,FeeNormal2,OccupyShort,OccupyLong,OccupyShort2,OccupyLong2,Overdue,Cap3,CapSmall,CapLarge,Output process
+    class Free1,Free2 free
+    class OccupyShort,OccupyLong,OccupyShort2,OccupyLong2,CapSmall,CapLarge penalty
